@@ -1,0 +1,78 @@
+services:
+  # Kafka broker (KRaft mode – no ZooKeeper needed)
+  broker:
+    image: apache/kafka:3.9.0
+    container_name: broker
+    ports:
+      - "9092:9092"
+    environment:
+      # KRaft / single-node settings
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      # Listeners
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:19092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:19092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # Cluster
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    healthcheck:
+      test: /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:19092 --list || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 15s
+
+  # Topic initialisation (runs once, then exits)
+  init-topics:
+    image: apache/kafka:3.9.0
+    depends_on:
+      broker:
+        condition: service_healthy
+    entrypoint: /opt/kafka/bin/kafka-topics.sh
+    command:
+      - --create
+      - --if-not-exists
+      - --topic
+      - topic_raw_temp_sensor_values
+      - --bootstrap-server
+      - broker:19092
+      - --partitions
+      - "2"
+      - --replication-factor
+      - "1"
+
+  # Producer
+  producer:
+    build: .
+    container_name: producer
+    depends_on:
+      init-topics:
+        condition: service_completed_successfully
+    command:
+      - python
+      - producer.py
+      - --brokers
+      - broker:19092
+      - --topic
+      - topic_raw_temp_sensor_values
+      - --rate
+      - "1"
+
+  # Consumer
+  consumer:
+    build: .
+    container_name: consumer
+    depends_on:
+      init-topics:
+        condition: service_completed_successfully
+    command:
+      - python
+      - consumer.py
+      - --brokers
+      - broker:19092
+      - --topic
+      - topic_raw_temp_sensor_values

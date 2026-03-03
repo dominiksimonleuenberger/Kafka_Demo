@@ -1,0 +1,7 @@
+.venv/
+.git/
+__pycache__/
+*.pyc
+.python-version
+_preliminary_notes.md
+SKILLS.md
