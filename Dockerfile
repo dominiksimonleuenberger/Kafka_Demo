@@ -1,13 +1,16 @@
 FROM python:3.11-slim
 
+# Python output sent straight to container logs
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# install project dependencies from pyproject.toml
+# copy all project files
 COPY pyproject.toml .
-RUN pip install --no-cache-dir .
+COPY src/ ./src/
 
-# copy producer and consumer application code
-COPY producer.py consumer.py ./
+# install project dependencies from pyproject.toml
+RUN pip install --no-cache-dir .
 
 # default command (overridden per service in docker-compose)
 CMD ["python"]

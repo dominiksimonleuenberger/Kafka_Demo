@@ -1,5 +1,5 @@
 services:
-  # Kafka broker (KRaft mode – no ZooKeeper needed)
+  # service: Kafka broker ( in KRaft mode – no ZooKeeper)
   broker:
     image: apache/kafka:3.9.0
     container_name: broker
@@ -9,22 +9,22 @@ services:
       # KRaft / single-node settings
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      # Listeners
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:19092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_HOST://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:19092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # Listeners: DOCKER for inter-container, HOST for host machine, CONTROLLER for KRaft
+      KAFKA_LISTENERS: DOCKER://0.0.0.0:19092,CONTROLLER://localhost:9093,HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: DOCKER://broker:19092,HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,DOCKER:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
       # Cluster
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
     healthcheck:
-      test: /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:19092 --list || exit 1
+      test: /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1
       interval: 5s
       timeout: 10s
-      retries: 10
-      start_period: 15s
+      retries: 15
+      start_period: 30s
 
   # Topic initialisation (runs once, then exits)
   init-topics:
@@ -54,7 +54,7 @@ services:
         condition: service_completed_successfully
     command:
       - python
-      - producer.py
+      - src/producer.py
       - --brokers
       - broker:19092
       - --topic
@@ -71,7 +71,7 @@ services:
         condition: service_completed_successfully
     command:
       - python
-      - consumer.py
+      - src/consumer.py
       - --brokers
       - broker:19092
       - --topic
