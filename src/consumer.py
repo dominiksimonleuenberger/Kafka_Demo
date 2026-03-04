@@ -1,5 +1,6 @@
 import argparse
 import json
+from datetime import datetime, timezone
 
 from kafka import KafkaConsumer
 
@@ -31,11 +32,14 @@ def main() -> None:
 
     try:
         for msg in consumer:
-            v = msg.value
+            event = msg.value
+            consumer_receive_time = datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3]
+            event["receive_time"] = consumer_receive_time
             dict_received = {
-                'sensor_id': v['sensor_id'],
-                'temperature_value': v['temperature_value'],
-                'event_time': v['event_time'],
+                'sensor_id': event.get('sensor_id'),
+                'temperature_value': event.get('temperature_value'),
+                'event_time': event.get('event_time'),
+                'receive_time': event.get('receive_time'),
                 'partition': msg.partition
             }
             print(f"  > received: {dict_received}")
