@@ -1,32 +1,44 @@
 services:
-  # service: Kafka broker ( in KRaft mode – no ZooKeeper)
+  # service: Kafka broker 
+  # (here in KRaft mode, a consensus protocol that removes dependency on ZooKeeper, 
+  # suitable for development and testing)
   broker:
     image: apache/kafka:3.9.0
-    container_name: broker
+    # fixed DNS name within Docker network
+    container_name: broker 
     ports:
+        # maps Windows host port (outside Docker) to connect to Kafka at localhost:9092
       - "9092:9092"
     environment:
-      # KRaft / single-node settings
+      # KRaft i.e. single-node settings
       KAFKA_NODE_ID: 1
+      # note: broker (data handling) and controller (e.g. leader election)
+      # in production usually separate nodes, but here combined for simplicity
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093 # format: {node_id}@{host}:{port}
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      # Listeners: DOCKER for inter-container, HOST for host machine, CONTROLLER for KRaft
+      # listeners: 
+      # DOCKER: for inter-container communication (producer, consumer, init-topics, broker)
+      # (HOST: communication with Windows host)
+      # (CONTROLLER: internal controller communication, not advertised here but required in KRaft mode)
       KAFKA_LISTENERS: DOCKER://0.0.0.0:19092,CONTROLLER://localhost:9093,HOST://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: DOCKER://broker:19092,HOST://localhost:9092
+      # security protocol: here unencrypted PLAINTEXT, use SSL or SASL in production
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,DOCKER:PLAINTEXT,HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
-      # Cluster
+      # just one replica for consumer progress offset topic
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      # base64-encoded Kafka cluster ID
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
     healthcheck:
+    # needed because init-topics service conditions on healthy broker
       test: /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1
       interval: 5s
       timeout: 10s
       retries: 15
       start_period: 30s
 
-  # Topic initialisation (runs once, then exits)
+  # service: topic initialisation (runs once, then exits)
   init-topics:
     image: apache/kafka:3.9.0
     depends_on:
@@ -35,17 +47,20 @@ services:
     entrypoint: /opt/kafka/bin/kafka-topics.sh
     command:
       - --create
-      - --if-not-exists
+      - --if-not-exists # idempotent creation (no error if topic already exists)
       - --topic
-      - topic_raw_temp_sensor_values
+      # topic name
+      - topic-sensor-values-temperature
       - --bootstrap-server
+      # broker DNS name and inter-container port within Docker network
       - broker:19092
       - --partitions
+      # 2 partitions, one for each sensor
       - "2"
       - --replication-factor
-      - "1"
+      - "1" # single partition replica, only leader broker
 
-  # Producer
+  # service: producer
   producer:
     build: .
     container_name: producer
@@ -58,11 +73,12 @@ services:
       - --brokers
       - broker:19092
       - --topic
-      - topic_raw_temp_sensor_values
+      - topic-sensor-values-temperature
       - --rate
-      - "1"
+      # number of messages per second
+      - "0.2"
 
-  # Consumer
+  # service: consumer
   consumer:
     build: .
     container_name: consumer
@@ -75,4 +91,4 @@ services:
       - --brokers
       - broker:19092
       - --topic
-      - topic_raw_temp_sensor_values
+      - topic-sensor-values-temperature

@@ -20,7 +20,7 @@ def main() -> None:
     """Kafka consumer – prints temperature sensor readings from the topic."""
     parser = argparse.ArgumentParser(description="Kafka temperature sensor measurement consumer")
     parser.add_argument("--brokers", default="localhost:9092", help="Kafka bootstrap servers")
-    parser.add_argument("--topic", default="topic_temperature_sensor_values", help="Source topic")
+    parser.add_argument("--topic", default="topic-sensor-values-temperature", help="Source topic")
     args = parser.parse_args()
 
     consumer = create_consumer(args.brokers, args.topic)
@@ -32,12 +32,13 @@ def main() -> None:
     try:
         for msg in consumer:
             v = msg.value
-            print(
-                f"  {msg.partition:>7}  "
-                f"  {v['sensor_id']:>7}  "
-                f"  {v['temperature_value']:>9.1f}  "
-                f"  {v['event_time']}"
-            )
+            dict_received = {
+                'sensor_id': v['sensor_id'],
+                'temperature_value': v['temperature_value'],
+                'event_time': v['event_time'],
+                'partition': msg.partition
+            }
+            print(f"  > received: {dict_received}")
     except KeyboardInterrupt:
         print("\nShutting down consumer …")
     finally:
