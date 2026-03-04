@@ -27,7 +27,7 @@ def generate_sensor_event(sensor_id: int) -> dict:
     """Return a single sensor reading with a normally-distributed temperature."""
     sensor = MAP_SENSOR.get(sensor_id, {"mean":0, "sigma": 0})
     temperature = round(random.gauss(mu=sensor["mean"], sigma=sensor["sigma"]), 1)
-    event_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    event_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
     return {
         "sensor_id": sensor_id,
         "temperature_value": temperature,
@@ -51,6 +51,7 @@ def main() -> None:
         while True:
             sensor_id = random.choice(list(MAP_SENSOR.keys()))
             dict_event = generate_sensor_event(sensor_id)
+            dict_event["send_time   "] = datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3]
             producer.send(
                 args.topic,
                 # key by sensor_id: all readings for same sensor go to same partition (deterministic)
@@ -58,7 +59,7 @@ def main() -> None:
                 value=dict_event,
             )
             print(f"  > sent:     {dict_event}")
-            # interval between 2 messages in seconds
+            # interval between two messages in seconds
             time.sleep(interval)
     except KeyboardInterrupt:
         print("\nShutting down producer …")
