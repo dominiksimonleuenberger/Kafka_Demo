@@ -39,7 +39,8 @@ graph LR
 ```
 
 ## Running Services (i.e. Producer, Broker and Consumer)
-Build the 4 services using Docker compose:
+First install [Docker Desktop](https://docs.docker.com/desktop/) on your local machine. 
+Then build the 4 services using Docker compose:
 ```bash
 docker compose build
 ```
@@ -77,3 +78,4 @@ docker compose logs -f --tail 1 producer consumer
 ```
 prints both producer logs and consumer logs alternately.
 While both producer and consumer are running, you can stop the `consumer service` in Dockerdesktop. `consumer exited with code 137` is displayed and you should observe that only sent messages are logged. Restart the `consumer service` and the consumer logs should become visible again, including all the messages that have been sent to and stored by the Kafka broker, but have not been consumed yet by the consumer. This is possible due to the offset commited by the consumer and stored in the Kafka offset topic.
+
